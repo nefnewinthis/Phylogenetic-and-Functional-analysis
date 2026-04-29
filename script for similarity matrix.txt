@@ -1,0 +1,53 @@
+from Bio import AlignIO
+
+alignment = AlignIO.read("ndufs1.aln.txt", "clustal")
+
+from Bio import AlignIO
+from Bio.Align import substitution_matrices
+import pandas as pd
+
+# Φόρτωσε το alignment
+alignment = AlignIO.read("sdha.aln.txt", "fasta")  # ή "clustal" αν είναι Clustal format
+
+# Φόρτωσε το BLOSUM62
+blosum62 = substitution_matrices.load("BLOSUM62")
+
+# Συνάρτηση κατηγοριοποίησης
+def similarity_category(a, b):
+    if a == b:
+        return "absolute"
+    elif (a, b) in blosum62 or (b, a) in blosum62:
+        return "high"
+    elif a != "-" and b != "-":
+        return "low"
+    else:
+        return "zero"  # αν υπάρχει gap
+
+# Δημιούργησε ένα DataFrame για τα αποτελέσματα
+df = pd.DataFrame(columns=["Απόλυτη", "Υψηλή", "Χαμηλή", "Μηδενική"])
+
+# Υπολόγισε τα ποσοστά για κάθε ζεύγος sequences
+for i, seq1 in enumerate(alignment):
+    for j, seq2 in enumerate(alignment):
+        counts = {"Απόλυτη":0, "Υψηλή":0, "Χαμηλή":0, "Μηδενική":0}
+        for a, b in zip(seq1.seq, seq2.seq):
+            cat = similarity_category(a, b)
+            if cat == "absolute":
+                counts["Απόλυτη"] += 1
+            elif cat == "high":
+                counts["Υψηλή"] += 1
+            elif cat == "low":
+                counts["Χαμηλή"] += 1
+            else:
+                counts["Μηδενική"] += 1
+        total = sum(counts.values())
+        # Μετατροπή σε ποσοστά
+        for k in counts:
+            counts[k] = counts[k]/total*100
+        df.loc[f"{seq1.id} vs {seq2.id}"] = counts
+
+# Δες τον πίνακα
+print(df)
+
+# Δημιουργία excel
+df.to_excel("similarity_matrix.xlsx")
